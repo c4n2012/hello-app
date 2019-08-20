@@ -35,11 +35,6 @@ spec:
     command:
     - cat
     tty: true
-  - name: golang
-    image: golang:1.10
-    command:
-    - cat
-    tty: true
   - name: docker
     image: gcr.io/cloud-builders/docker
     command:
@@ -53,30 +48,39 @@ spec:
     command:
     - cat
     tty: true
-
 """
 }
   }
+  stages {
     stage('Checkout') {
         steps {
             git branch: 'master', url: "${APP_REPO}"
         }
     }
-//   stages {
-//     stage('Clone project from git repo') {
-//       steps {
-//         container('git') {
-//           checkout scm
-//         }
-//       }
-//     }
     stage('Build and push container') {
       steps {
         container('docker') {
         //  sh "cd $WORKSPACE/repo/${APP_NAME}";
          sh "docker build -t ${IMAGE_TAG} .";
          sh "docker images";
-         sh "docker push ${IMAGE_TAG}";
+        }
+    } 
+} 
+        stage('Push container') {
+      steps {
+        container('docker') {
+			script {
+            docker.withRegistry("https://eu.gcr.io", "gcr:demo2-248908") {
+            sh "docker push ${IMAGE_TAG}"
+			}
+        }
+    }}}
+        stage('Deploy') {
+      steps {
+        container('kubectl') {
+         sh "kubectl create deployment hello-web --image=${IMAGE_TAG}";
+         sh "kubectl get pods";
+         sh "kubectl expose deployment hello-web --type=LoadBalancer --port 80 --target-port 8081";
         }
     } 
 }
